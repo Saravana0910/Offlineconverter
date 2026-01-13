@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Offline Image Converter</title>
+<title>Offline Image Converter (WASM)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -10,55 +10,54 @@ body { font-family: system-ui; background:#020617; color:white; margin:0; }
 .container { max-width:900px; margin:auto; padding:20px; }
 h1{text-align:center;}
 input,select,button{width:100%;padding:12px;margin-top:12px;border-radius:8px;border:none;font-size:16px;}
-button{background:#2563eb;color:white;}
+button{background:#2563eb;color:white;cursor:pointer;}
 button:disabled{background:#334155;}
 img{max-width:100%;margin-top:15px;border-radius:10px;}
 .status{margin-top:12px;padding:10px;border-radius:8px;font-size:14px;}
 .status.info{background:#020617;color:#22c55e;border:1px solid #14532d;}
 .status.error{background:#450a0a;color:#fecaca;border:1px solid #7f1d1d;}
+.footer{margin-top:18px;font-size:12px;color:#94a3b8;text-align:center;}
 </style>
 </head>
 
 <body>
 <div class="container">
 <h1>🧠 Offline Image Converter</h1>
-<p style="text-align:center">All processing happens locally in your browser</p>
+<p style="text-align:center">Runs fully in your browser · No uploads · Privacy-first</p>
 
 <input type="file" id="fileInput">
+
 <select id="format" disabled></select>
 <button id="convertBtn" disabled>Convert & Download</button>
 
 <img id="preview" hidden>
-<div id="statusBox" class="status info">Initializing engine…</div>
+<div id="statusBox" class="status info">Loading image engine…</div>
+
+<div class="footer">Powered by ImageMagick WebAssembly</div>
 </div>
 
 <script type="module">
-import { initializeImageMagick, Magick, MagickFormat } from "./wasm/index.js";
-
 const statusBox = document.getElementById("statusBox");
 const fileInput = document.getElementById("fileInput");
 const convertBtn = document.getElementById("convertBtn");
 const formatSelect = document.getElementById("format");
 const preview = document.getElementById("preview");
 
-let file;
+let Magick, MagickFormat, file;
 
 const setInfo = m => { statusBox.className="status info"; statusBox.innerText=m; };
 const setError = m => { statusBox.className="status error"; statusBox.innerText=m; };
 
 async function boot(){
   try{
-    setInfo("Fetching WASM engine…");
+    setInfo("Downloading ImageMagick engine (first load only)…");
 
-    const wasmUrl = new URL("./wasm/magick.wasm", location.href);
-    const wasmResp = await fetch(wasmUrl);
-    const wasmBytes = await wasmResp.arrayBuffer();
+    const mod = await import("https://esm.sh/@imagemagick/magick-wasm@0.0.30");
 
-    setInfo("Initializing engine…");
+    await mod.initializeImageMagick();
 
-    await initializeImageMagick({
-      wasmBinary: wasmBytes
-    });
+    Magick = mod.Magick;
+    MagickFormat = mod.MagickFormat;
 
     ["PNG","JPG","WEBP","AVIF","HEIC","TIFF","BMP","ICO","GIF","PDF","SVG"]
       .forEach(f=>{
@@ -73,12 +72,13 @@ async function boot(){
 
   }catch(e){
     console.error("ENGINE ERROR:", e);
-    setError("❌ Engine failed to load.\n\n" + e.message);
+    setError("❌ Failed to load image engine.\n\n" + (e.message || e));
   }
 }
 
 boot();
 
+/* ---------- Image select ---------- */
 fileInput.onchange = e=>{
   file=e.target.files[0];
   if(!file) return;
@@ -87,6 +87,7 @@ fileInput.onchange = e=>{
   setInfo("Loaded: " + file.name);
 };
 
+/* ---------- Convert ---------- */
 convertBtn.onclick = async ()=>{
   if(!file) return setError("Select an image first");
 
@@ -104,16 +105,16 @@ convertBtn.onclick = async ()=>{
     const url = URL.createObjectURL(blob);
 
     const a=document.createElement("a");
-    a.href=url; 
-    a.download="converted."+fmt.toLowerCase(); 
+    a.href=url;
+    a.download="converted."+fmt.toLowerCase();
     a.click();
 
     URL.revokeObjectURL(url);
     setInfo("Done ✔ Download started");
 
   }catch(err){
-    console.error(err);
-    setError("❌ Conversion failed.\n\n" + err.message);
+    console.error("CONVERT ERROR:", err);
+    setError("❌ Conversion failed.\n\n" + (err.message || err));
   }
 };
 </script>
