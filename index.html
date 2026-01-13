@@ -48,10 +48,16 @@ const setError = m => { statusBox.className="status error"; statusBox.innerText=
 
 async function boot(){
   try{
-    setInfo("Loading image engine… (first load ~4MB)");
+    setInfo("Fetching WASM engine…");
+
+    const wasmUrl = new URL("./wasm/magick.wasm", location.href);
+    const wasmResp = await fetch(wasmUrl);
+    const wasmBytes = await wasmResp.arrayBuffer();
+
+    setInfo("Initializing engine…");
 
     await initializeImageMagick({
-      locateFile: file => "./wasm/" + file
+      wasmBinary: wasmBytes
     });
 
     ["PNG","JPG","WEBP","AVIF","HEIC","TIFF","BMP","ICO","GIF","PDF","SVG"]
@@ -98,8 +104,8 @@ convertBtn.onclick = async ()=>{
     const url = URL.createObjectURL(blob);
 
     const a=document.createElement("a");
-    a.href=url;
-    a.download="converted."+fmt.toLowerCase();
+    a.href=url; 
+    a.download="converted."+fmt.toLowerCase(); 
     a.click();
 
     URL.revokeObjectURL(url);
