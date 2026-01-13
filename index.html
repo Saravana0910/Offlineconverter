@@ -51,8 +51,17 @@ img {
   font-size: 14px;
 }
 
-.status.info { background: #020617; color: #22c55e; border: 1px solid #14532d; }
-.status.error { background: #450a0a; color: #fecaca; border: 1px solid #7f1d1d; }
+.status.info {
+  background: #020617;
+  color: #22c55e;
+  border: 1px solid #14532d;
+}
+
+.status.error {
+  background: #450a0a;
+  color: #fecaca;
+  border: 1px solid #7f1d1d;
+}
 
 .footer {
   margin-top: 20px;
@@ -80,25 +89,19 @@ img {
 <div id="statusBox" class="status info">Initializing engine…</div>
 
 <div class="footer">
-Image processing happens only on your device
+All processing happens only on your device
 </div>
 
 </div>
 
 <script type="module">
-import {
-  initializeImageMagick,
-  Magick,
-  MagickFormat
-} from "https://esm.sh/@imagemagick/magick-wasm@0.0.30";
-
 const statusBox = document.getElementById("statusBox");
 const fileInput = document.getElementById("fileInput");
 const convertBtn = document.getElementById("convertBtn");
 const formatSelect = document.getElementById("format");
 const preview = document.getElementById("preview");
 
-let file;
+let Magick, MagickFormat, file;
 
 /* ---------- UI helpers ---------- */
 function setInfo(msg) {
@@ -111,12 +114,19 @@ function setError(msg) {
   statusBox.innerText = msg;
 }
 
-/* ---------- Boot engine ---------- */
+/* ---------- Boot ImageMagick ---------- */
 async function boot() {
   try {
-    setInfo("Downloading image engine (first load only)…");
+    setInfo("Connecting to image engine…");
 
-    await initializeImageMagick();
+    const mod = await import("https://esm.sh/@imagemagick/magick-wasm@0.0.30");
+
+    setInfo("Downloading WebAssembly engine (first load only)…");
+
+    await mod.initializeImageMagick();
+
+    Magick = mod.Magick;
+    MagickFormat = mod.MagickFormat;
 
     const formats = ["PNG","JPG","WEBP","AVIF","HEIC","TIFF","BMP","ICO","GIF","PDF","SVG"];
 
@@ -131,13 +141,14 @@ async function boot() {
     formatSelect.disabled = false;
     convertBtn.disabled = false;
 
-    setInfo("Engine ready ✔ Select an image.");
+    setInfo("Engine loaded ✔ Select an image.");
 
   } catch (e) {
-    console.error(e);
-    setError("Failed to load image engine. Please refresh or check your internet.");
+    console.error("ENGINE LOAD FAILED:", e);
+    setError("❌ Failed to load image engine.\n\n" + (e.message || e));
   }
 }
+
 boot();
 
 /* ---------- Image select ---------- */
@@ -180,8 +191,8 @@ convertBtn.addEventListener("click", async () => {
     setInfo("Conversion complete ✔ Download started.");
 
   } catch (err) {
-    console.error(err);
-    setError("Conversion failed. This file or format may not be supported by your browser.");
+    console.error("CONVERT ERROR:", err);
+    setError("❌ Conversion failed.\n\n" + (err.message || err));
   }
 });
 </script>
