@@ -18,6 +18,7 @@ body {
   padding: 20px;
 }
 h1 { text-align: center; }
+
 input, select, button {
   width: 100%;
   padding: 12px;
@@ -26,6 +27,7 @@ input, select, button {
   border: none;
   font-size: 16px;
 }
+
 button {
   background: #2563eb;
   color: white;
@@ -33,17 +35,25 @@ button {
 }
 button:disabled {
   background: #334155;
+  cursor: not-allowed;
 }
+
 img {
   max-width: 100%;
   margin-top: 15px;
   border-radius: 10px;
 }
-.log {
+
+.status {
   margin-top: 12px;
-  color: #22c55e;
+  padding: 10px;
+  border-radius: 8px;
   font-size: 14px;
 }
+
+.status.info { background: #020617; color: #22c55e; border: 1px solid #14532d; }
+.status.error { background: #450a0a; color: #fecaca; border: 1px solid #7f1d1d; }
+
 .footer {
   margin-top: 20px;
   font-size: 12px;
@@ -61,17 +71,16 @@ img {
 
 <input type="file" id="fileInput">
 
-<select id="format" disabled>
-  <option>Loading engine…</option>
-</select>
+<select id="format" disabled></select>
 
 <button id="convertBtn" disabled>Convert & Download</button>
 
 <img id="preview" hidden>
-<div class="log" id="log">Initializing engine…</div>
+
+<div id="statusBox" class="status info">Initializing engine…</div>
 
 <div class="footer">
-Powered by ImageMagick WebAssembly · Works offline after first load
+Image processing happens only on your device
 </div>
 
 </div>
@@ -83,7 +92,7 @@ import {
   MagickFormat
 } from "https://esm.sh/@imagemagick/magick-wasm@0.0.30";
 
-const log = document.getElementById("log");
+const statusBox = document.getElementById("statusBox");
 const fileInput = document.getElementById("fileInput");
 const convertBtn = document.getElementById("convertBtn");
 const formatSelect = document.getElementById("format");
@@ -91,12 +100,23 @@ const preview = document.getElementById("preview");
 
 let file;
 
+/* ---------- UI helpers ---------- */
+function setInfo(msg) {
+  statusBox.className = "status info";
+  statusBox.innerText = msg;
+}
+
+function setError(msg) {
+  statusBox.className = "status error";
+  statusBox.innerText = msg;
+}
+
 /* ---------- Boot engine ---------- */
 async function boot() {
   try {
-    log.innerText = "Downloading image engine (first load only)…";
+    setInfo("Downloading image engine (first load only)…");
+
     await initializeImageMagick();
-    log.innerText = "Engine ready ✔ Select an image.";
 
     const formats = ["PNG","JPG","WEBP","AVIF","HEIC","TIFF","BMP","ICO","GIF","PDF","SVG"];
 
@@ -111,9 +131,11 @@ async function boot() {
     formatSelect.disabled = false;
     convertBtn.disabled = false;
 
+    setInfo("Engine ready ✔ Select an image.");
+
   } catch (e) {
     console.error(e);
-    log.innerText = "❌ Failed to load engine. Try Chrome/Edge/Firefox.";
+    setError("Failed to load image engine. Please refresh or check your internet.");
   }
 }
 boot();
@@ -125,15 +147,18 @@ fileInput.addEventListener("change", e => {
 
   preview.src = URL.createObjectURL(file);
   preview.hidden = false;
-  log.innerText = "Loaded: " + file.name;
+  setInfo("Loaded: " + file.name);
 });
 
 /* ---------- Convert ---------- */
 convertBtn.addEventListener("click", async () => {
-  if (!file) return alert("Select an image first");
+  if (!file) {
+    setError("No image selected.");
+    return;
+  }
 
   try {
-    log.innerText = "Processing…";
+    setInfo("Processing image…");
 
     const inputBytes = new Uint8Array(await file.arrayBuffer());
     const image = await Magick.Read(inputBytes);
@@ -152,13 +177,14 @@ convertBtn.addEventListener("click", async () => {
     a.click();
 
     URL.revokeObjectURL(url);
-    log.innerText = "Done ✔ Download started";
+    setInfo("Conversion complete ✔ Download started.");
 
   } catch (err) {
     console.error(err);
-    log.innerText = "❌ Conversion failed (format not supported on this browser)";
+    setError("Conversion failed. This file or format may not be supported by your browser.");
   }
 });
 </script>
+
 </body>
 </html>
