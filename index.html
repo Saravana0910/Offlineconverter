@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Privacy Image Converter (WASM)</title>
+<title>Privacy Image Converter</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -50,13 +50,11 @@ img {
   border-radius: 8px;
   font-size: 14px;
 }
-
 .status.info {
   background: #020617;
   color: #22c55e;
   border: 1px solid #14532d;
 }
-
 .status.error {
   background: #450a0a;
   color: #fecaca;
@@ -64,7 +62,7 @@ img {
 }
 
 .footer {
-  margin-top: 20px;
+  margin-top: 18px;
   font-size: 12px;
   color: #94a3b8;
   text-align: center;
@@ -76,7 +74,7 @@ img {
 <div class="container">
 
 <h1>🧠 Privacy Image Converter</h1>
-<p style="text-align:center">Runs fully in your browser · No uploads · No tracking</p>
+<p style="text-align:center">All processing happens locally in your browser</p>
 
 <input type="file" id="fileInput">
 
@@ -89,12 +87,14 @@ img {
 <div id="statusBox" class="status info">Initializing engine…</div>
 
 <div class="footer">
-All processing happens only on your device
+Self-hosted WebAssembly · No uploads · No tracking
 </div>
 
 </div>
 
 <script type="module">
+import initMagick from "./wasm/magick.js";
+
 const statusBox = document.getElementById("statusBox");
 const fileInput = document.getElementById("fileInput");
 const convertBtn = document.getElementById("convertBtn");
@@ -108,7 +108,6 @@ function setInfo(msg) {
   statusBox.className = "status info";
   statusBox.innerText = msg;
 }
-
 function setError(msg) {
   statusBox.className = "status error";
   statusBox.innerText = msg;
@@ -117,18 +116,20 @@ function setError(msg) {
 /* ---------- Boot ImageMagick ---------- */
 async function boot() {
   try {
-    setInfo("Connecting to image engine…");
+    setInfo("Loading local image engine (first time may take a few seconds)…");
 
-    const mod = await import("https://esm.sh/@imagemagick/magick-wasm@0.0.30");
-
-    setInfo("Downloading WebAssembly engine (first load only)…");
-
-    await mod.initializeImageMagick();
+    const mod = await initMagick({
+      locateFile: (file) => "./wasm/" + file
+    });
 
     Magick = mod.Magick;
     MagickFormat = mod.MagickFormat;
 
-    const formats = ["PNG","JPG","WEBP","AVIF","HEIC","TIFF","BMP","ICO","GIF","PDF","SVG"];
+    const formats = [
+      "PNG","JPG","WEBP","AVIF",
+      "HEIC","TIFF","BMP","ICO",
+      "GIF","PDF","SVG"
+    ];
 
     formatSelect.innerHTML = "";
     formats.forEach(f => {
@@ -144,7 +145,7 @@ async function boot() {
     setInfo("Engine loaded ✔ Select an image.");
 
   } catch (e) {
-    console.error("ENGINE LOAD FAILED:", e);
+    console.error("ENGINE LOAD ERROR:", e);
     setError("❌ Failed to load image engine.\n\n" + (e.message || e));
   }
 }
@@ -191,7 +192,7 @@ convertBtn.addEventListener("click", async () => {
     setInfo("Conversion complete ✔ Download started.");
 
   } catch (err) {
-    console.error("CONVERT ERROR:", err);
+    console.error("CONVERSION ERROR:", err);
     setError("❌ Conversion failed.\n\n" + (err.message || err));
   }
 });
