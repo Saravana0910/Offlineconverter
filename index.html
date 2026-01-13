@@ -31,11 +31,9 @@ input, select, button {
 button {
   background: #2563eb;
   color: white;
-  cursor: pointer;
 }
 button:disabled {
   background: #334155;
-  cursor: not-allowed;
 }
 
 img {
@@ -60,13 +58,6 @@ img {
   color: #fecaca;
   border: 1px solid #7f1d1d;
 }
-
-.footer {
-  margin-top: 18px;
-  font-size: 12px;
-  color: #94a3b8;
-  text-align: center;
-}
 </style>
 </head>
 
@@ -77,24 +68,18 @@ img {
 <p style="text-align:center">All processing happens locally in your browser</p>
 
 <input type="file" id="fileInput">
-
 <select id="format" disabled></select>
-
 <button id="convertBtn" disabled>Convert & Download</button>
 
 <img id="preview" hidden>
-
 <div id="statusBox" class="status info">Initializing engine…</div>
 
-<div class="footer">
-Self-hosted WebAssembly · No uploads · No tracking
 </div>
 
-</div>
+<!-- ✅ Load classic WASM loader -->
+<script src="./wasm/magick.js"></script>
 
-<script type="module">
-import initMagick from "./wasm/magick.js";
-
+<script>
 const statusBox = document.getElementById("statusBox");
 const fileInput = document.getElementById("fileInput");
 const convertBtn = document.getElementById("convertBtn");
@@ -103,11 +88,11 @@ const preview = document.getElementById("preview");
 
 let Magick, MagickFormat, file;
 
-/* ---------- UI helpers ---------- */
 function setInfo(msg) {
   statusBox.className = "status info";
   statusBox.innerText = msg;
 }
+
 function setError(msg) {
   statusBox.className = "status error";
   statusBox.innerText = msg;
@@ -116,10 +101,14 @@ function setError(msg) {
 /* ---------- Boot ImageMagick ---------- */
 async function boot() {
   try {
-    setInfo("Loading local image engine (first time may take a few seconds)…");
+    if (typeof Magick === "undefined" && typeof createMagickModule === "undefined") {
+      throw new Error("magick.js not loaded");
+    }
 
-    const mod = await initMagick({
-      locateFile: (file) => "./wasm/" + file
+    setInfo("Loading local image engine…");
+
+    const mod = await createMagickModule({
+      locateFile: file => "./wasm/" + file
     });
 
     Magick = mod.Magick;
@@ -146,37 +135,34 @@ async function boot() {
 
   } catch (e) {
     console.error("ENGINE LOAD ERROR:", e);
-    setError("❌ Failed to load image engine.\n\n" + (e.message || e));
+    setError("❌ Failed to load image engine.\n\n" + e.message);
   }
 }
 
 boot();
 
 /* ---------- Image select ---------- */
-fileInput.addEventListener("change", e => {
+fileInput.onchange = e => {
   file = e.target.files[0];
   if (!file) return;
 
   preview.src = URL.createObjectURL(file);
   preview.hidden = false;
   setInfo("Loaded: " + file.name);
-});
+};
 
 /* ---------- Convert ---------- */
-convertBtn.addEventListener("click", async () => {
-  if (!file) {
-    setError("No image selected.");
-    return;
-  }
+convertBtn.onclick = async () => {
+  if (!file) return setError("Select an image first");
 
   try {
     setInfo("Processing image…");
 
-    const inputBytes = new Uint8Array(await file.arrayBuffer());
-    const image = await Magick.Read(inputBytes);
+    const input = new Uint8Array(await file.arrayBuffer());
+    const image = await Magick.Read(input);
 
-    const format = formatSelect.value;
-    image.format = MagickFormat[format];
+    const fmt = formatSelect.value;
+    image.format = MagickFormat[fmt];
 
     const output = await image.write();
 
@@ -185,17 +171,17 @@ convertBtn.addEventListener("click", async () => {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "converted." + format.toLowerCase();
+    a.download = "converted." + fmt.toLowerCase();
     a.click();
 
     URL.revokeObjectURL(url);
     setInfo("Conversion complete ✔ Download started.");
 
   } catch (err) {
-    console.error("CONVERSION ERROR:", err);
-    setError("❌ Conversion failed.\n\n" + (err.message || err));
+    console.error("CONVERT ERROR:", err);
+    setError("❌ Conversion failed.\n\n" + err.message);
   }
-});
+};
 </script>
 
 </body>
