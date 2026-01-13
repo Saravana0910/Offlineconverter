@@ -2,73 +2,78 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>WASM Image Converter</title>
+<title>Privacy Image Converter (WASM)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 body {
   font-family: system-ui, sans-serif;
-  background: #0f172a;
+  background: #020617;
   color: white;
   margin: 0;
 }
 .container {
   max-width: 900px;
-  margin: 40px auto;
-  background: #020617;
-  padding: 25px;
-  border-radius: 14px;
-  box-shadow: 0 0 25px rgba(0,0,0,0.6);
+  margin: auto;
+  padding: 20px;
 }
-h1 { text-align:center; }
+h1 { text-align: center; }
 input, select, button {
-  width:100%;
-  padding:12px;
-  margin-top:12px;
-  border-radius:8px;
-  border:none;
-  font-size:16px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
 }
 button {
-  background:#2563eb;
-  color:white;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
 }
-.log {
-  margin-top:12px;
-  color:#22c55e;
-  font-size:14px;
+button:disabled {
+  background: #334155;
 }
 img {
-  max-width:100%;
-  margin-top:15px;
-  border-radius:10px;
+  max-width: 100%;
+  margin-top: 15px;
+  border-radius: 10px;
+}
+.log {
+  margin-top: 12px;
+  color: #22c55e;
+  font-size: 14px;
+}
+.footer {
+  margin-top: 20px;
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: center;
 }
 </style>
 </head>
 
 <body>
-
 <div class="container">
-<h1>🧠 WASM Image Converter</h1>
-<p>All processing runs locally in your browser</p>
+
+<h1>🧠 Privacy Image Converter</h1>
+<p style="text-align:center">Runs fully in your browser · No uploads · No tracking</p>
 
 <input type="file" id="fileInput">
 
-<select id="format">
-  <option value="png">PNG</option>
-  <option value="jpg">JPG</option>
-  <option value="webp">WEBP</option>
-  <option value="avif">AVIF</option>
-  <option value="heic">HEIC</option>
-  <option value="tiff">TIFF</option>
-  <option value="bmp">BMP</option>
-  <option value="ico">ICO</option>
+<select id="format" disabled>
+  <option>Loading engine…</option>
 </select>
 
-<button id="convertBtn">Convert & Download</button>
+<button id="convertBtn" disabled>Convert & Download</button>
 
-<div class="log" id="log">Initializing engine…</div>
 <img id="preview" hidden>
+<div class="log" id="log">Initializing engine…</div>
+
+<div class="footer">
+Powered by ImageMagick WebAssembly · Works offline after first load
+</div>
+
 </div>
 
 <script type="module">
@@ -76,7 +81,7 @@ import {
   initializeImageMagick,
   Magick,
   MagickFormat
-} from "https://unpkg.com/@imagemagick/magick-wasm@0.0.30/dist/index.min.js";
+} from "https://esm.sh/@imagemagick/magick-wasm@0.0.30";
 
 const log = document.getElementById("log");
 const fileInput = document.getElementById("fileInput");
@@ -86,32 +91,46 @@ const preview = document.getElementById("preview");
 
 let file;
 
-/* ---------- Load engine safely ---------- */
+/* ---------- Boot engine ---------- */
 async function boot() {
   try {
-    log.innerText = "Loading ImageMagick engine… (first time may take a few seconds)";
+    log.innerText = "Downloading image engine (first load only)…";
     await initializeImageMagick();
     log.innerText = "Engine ready ✔ Select an image.";
+
+    const formats = ["PNG","JPG","WEBP","AVIF","HEIC","TIFF","BMP","ICO","GIF","PDF","SVG"];
+
+    formatSelect.innerHTML = "";
+    formats.forEach(f => {
+      const opt = document.createElement("option");
+      opt.value = f;
+      opt.textContent = f;
+      formatSelect.appendChild(opt);
+    });
+
+    formatSelect.disabled = false;
+    convertBtn.disabled = false;
+
   } catch (e) {
     console.error(e);
-    log.innerText = "❌ Engine failed to load. Check internet or browser support.";
+    log.innerText = "❌ Failed to load engine. Try Chrome/Edge/Firefox.";
   }
 }
 boot();
 
-/* ---------- Load image ---------- */
+/* ---------- Image select ---------- */
 fileInput.addEventListener("change", e => {
   file = e.target.files[0];
   if (!file) return;
 
   preview.src = URL.createObjectURL(file);
   preview.hidden = false;
-  log.innerText = "Image loaded: " + file.name;
+  log.innerText = "Loaded: " + file.name;
 });
 
 /* ---------- Convert ---------- */
 convertBtn.addEventListener("click", async () => {
-  if (!file) return alert("Select an image first.");
+  if (!file) return alert("Select an image first");
 
   try {
     log.innerText = "Processing…";
@@ -119,12 +138,12 @@ convertBtn.addEventListener("click", async () => {
     const inputBytes = new Uint8Array(await file.arrayBuffer());
     const image = await Magick.Read(inputBytes);
 
-    const format = formatSelect.value.toUpperCase();
+    const format = formatSelect.value;
     image.format = MagickFormat[format];
 
-    const outputBytes = await image.write();
+    const output = await image.write();
 
-    const blob = new Blob([outputBytes.buffer]);
+    const blob = new Blob([output.buffer]);
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
@@ -137,10 +156,9 @@ convertBtn.addEventListener("click", async () => {
 
   } catch (err) {
     console.error(err);
-    log.innerText = "❌ Conversion failed. Format may not be supported.";
+    log.innerText = "❌ Conversion failed (format not supported on this browser)";
   }
 });
 </script>
-
 </body>
 </html>
