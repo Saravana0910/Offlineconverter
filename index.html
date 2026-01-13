@@ -48,10 +48,10 @@ const setError = m => { statusBox.className="status error"; statusBox.innerText=
 
 async function boot(){
   try{
-    setInfo("Loading local image engine… (first load ~15MB)");
+    setInfo("Loading image engine… (first load ~4MB)");
 
     await initializeImageMagick({
-      locateFile: f => new URL("./wasm/" + f, location.href).href
+      locateFile: file => "./wasm/" + file
     });
 
     ["PNG","JPG","WEBP","AVIF","HEIC","TIFF","BMP","ICO","GIF","PDF","SVG"]
@@ -66,8 +66,8 @@ async function boot(){
     setInfo("Engine loaded ✔ Select an image");
 
   }catch(e){
-    console.error(e);
-    setError("❌ Engine failed to load: " + e.message);
+    console.error("ENGINE ERROR:", e);
+    setError("❌ Engine failed to load.\n\n" + e.message);
   }
 }
 
@@ -98,14 +98,16 @@ convertBtn.onclick = async ()=>{
     const url = URL.createObjectURL(blob);
 
     const a=document.createElement("a");
-    a.href=url; a.download="converted."+fmt.toLowerCase(); a.click();
+    a.href=url;
+    a.download="converted."+fmt.toLowerCase();
+    a.click();
 
     URL.revokeObjectURL(url);
     setInfo("Done ✔ Download started");
 
   }catch(err){
     console.error(err);
-    setError("❌ Conversion failed: " + err.message);
+    setError("❌ Conversion failed.\n\n" + err.message);
   }
 };
 </script>
